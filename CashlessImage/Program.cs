@@ -27,7 +27,7 @@ namespace CashlessImage
 
             parser.Configure(opt => opt.ImgInputFile)
                 .Name("i", "image_input")
-                .Default("thank_you.jpg")
+                .Default("cashless.png")
                 .Description("Input file name")
                 .Required();
 
@@ -39,7 +39,8 @@ namespace CashlessImage
 
             parser.Configure(opt => opt.OutputFile)
                 .Name("o", "output")
-                .Default("../../outputfile.png")
+                //.Default("../../outputfile.png")
+                .Default("../../outputdata.json")
                 .Description("Output file name")
                 .Required();
 
@@ -47,6 +48,11 @@ namespace CashlessImage
                 .Name("b", "bits")
                 .Default(6)
                 .Description("How many bits per color segment (leave 0 to only use Alpha)");
+
+            parser.Configure(opt => opt.Direction)
+               .Name("direction")
+               .Default(ProcessingDirection.ToData)
+               .Description("To data, or to image == processing direction");
 
             parser.Configure(opt => opt.DeleteOutputFile)
                 .Name("f", "force")
@@ -106,23 +112,8 @@ namespace CashlessImage
                 }
             }
 
-            //if (options.Direction == ProcessingDirection.ToImage)
-            //{
             var imageMaker = new ImageMaker(options);
             imageMaker.Run();
-            //}
-            //else
-            //{
-            //    var mobster = new BinaryMaker(options, palette);
-            //    mobster.Run();
-            //}
-
-            if (File.Exists(options.OutputFile))
-            {
-                Console.Out.WriteLine("Data merged and written into image " + options.OutputFile);
-                // open default viewer on output file
-                //Process.Start(options.OutputFile);
-            }
         }
     }
 }

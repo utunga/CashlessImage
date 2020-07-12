@@ -28,6 +28,18 @@ namespace CashlessImage
 
         public void Run()
         {
+            if (_options.Direction == ProcessingDirection.ToImage)
+            {
+                MergeDataIntoImage();
+            }
+            else
+            {
+                ExtractDataFromImage();
+            }
+        }
+
+        public void MergeDataIntoImage()
+        {
             Bitmap inputImage = new Bitmap(_options.ImgInputFile);
             int width = inputImage.Width;
             int height = inputImage.Height;
@@ -45,7 +57,25 @@ namespace CashlessImage
             Console.Out.WriteLine("Wrote file to " + info.FullName);
         }
 
-        private IEnumerable<int> InjectData(
+        public void ExtractDataFromImage()
+        {
+            Bitmap inputImage = new Bitmap(_options.ImgInputFile);
+            int width = inputImage.Width;
+            int height = inputImage.Height;
+
+            IEnumerable<int> pixels = PixelDataFromImage(inputImage);
+            byte[] extractedData = ExtractData(pixels, width, height);
+
+            using (var fs = new FileStream(_options.OutputFile, FileMode.Create, FileAccess.Write))
+            {
+                fs.Write(extractedData, 0, extractedData.Length);
+            }
+
+            var info = new FileInfo(_options.OutputFile);
+            Console.Out.WriteLine("Wrote file to " + info.FullName);
+        }
+
+        public IEnumerable<int> InjectData(
             IEnumerable<int> pixelsEnum,
             BitArray injectData,
             int width,
@@ -84,6 +114,45 @@ namespace CashlessImage
 
             var retVal = new int[pixelData.Length];
             pixelData.CopyTo(retVal, 0);
+            return retVal;
+        }
+
+
+        public byte[] ExtractData(
+            IEnumerable<int> pixelsEnum,
+            int width,
+            int height)
+        {
+            var pixels = pixelsEnum.ToArray();
+            var pixelData = new BitArray(pixels);
+            var extractData = new BitArray(pixels.Length);
+            var extractPtr = 0;
+            var pixelPtr = 0;
+            int pixelDataPtr = -1;
+
+            while (pixelPtr < pixels.Length)
+            {
+                if (IsWriteableVisualArea(pixelPtr, width, height))
+                {
+                    if (pixelDataPtr == -1)
+                        pixelDataPtr = pixelPtr * 32;
+
+                    extractData[extractPtr++] = pixelData[pixelDataPtr];
+                    pixelDataPtr = NextWriteableBit(pixelDataPtr);
+                    pixelPtr = pixelDataPtr / 32;
+                }
+                else
+                {
+                    pixelDataPtr = -1;
+                    pixelPtr++;
+                }
+
+            }
+
+            // truncate at that length
+            extractData.Length = extractPtr + 1;
+            var retVal = new byte[extractData.Length / 8 +1];
+            extractData.CopyTo(retVal, 0);
             return retVal;
         }
 
