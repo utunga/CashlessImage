@@ -27,7 +27,7 @@ namespace CashlessImage
 
             parser.Configure(opt => opt.ImgInputFile)
                 .Name("i", "image_input")
-                .Default("cashless.png")
+                .Default("thank_you.jpg")
                 .Description("Input file name")
                 .Required();
 
@@ -42,6 +42,11 @@ namespace CashlessImage
                 .Default("../../outputfile.png")
                 .Description("Output file name")
                 .Required();
+
+            parser.Configure(opt => opt.BitsPerColor)
+                .Name("b", "bits")
+                .Default(6)
+                .Description("How many bits per color segment (leave 0 to only use Alpha)");
 
             parser.Configure(opt => opt.DeleteOutputFile)
                 .Name("f", "force")

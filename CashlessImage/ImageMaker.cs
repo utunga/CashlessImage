@@ -93,7 +93,7 @@ namespace CashlessImage
             var x = pixelPtr % width;
             var y = pixelPtr / width;
             bool xInRange = (x > (width / 2) && x < (4 * width / 5));
-            bool yInRange = (y > (height / 2) && y < (4 * height / 5));
+            bool yInRange = (y > (9 * height / 12) && y < (10 * height / 12));
             return (xInRange && yInRange);
         }
 
