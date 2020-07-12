@@ -1,2 +1,2 @@
 # Cashless Image
-Merges data into an image in the low end bits - in a specific area, convertable.
+Merges data into the low end bits of an image - in a specific area, configurable
