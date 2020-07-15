@@ -20,6 +20,6 @@ namespace CashlessImage
 
         public ProcessingDirection Direction { get; set; } = ProcessingDirection.ToImage;
 
-        public int BitsPerColor { get; set; } = 8;
+        public int BitsPerColor { get; set; }
     }
 }

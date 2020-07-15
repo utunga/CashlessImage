@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Imaging;
+using SkiaSharp;
 using System.IO;
 using System.Linq;
 
@@ -40,7 +39,7 @@ namespace CashlessImage
 
         public void MergeDataIntoImage()
         {
-            Bitmap inputImage = new Bitmap(_options.ImgInputFile);
+            SKBitmap inputImage = LoadBmpFromFile(_options.ImgInputFile);
             int width = inputImage.Width;
             int height = inputImage.Height;
             BitArray dataToInject = BitArrayFromFile(_options.DataInputFile);
@@ -48,10 +47,9 @@ namespace CashlessImage
             IEnumerable<int> pixels = PixelDataFromImage(inputImage);
             IEnumerable<int> injectedPixels = InjectData(pixels, dataToInject, width, height);
 
-            var image = ImageFromPixels(injectedPixels, width, height);
+            var bmp = BitmapFromPixels(injectedPixels, width, height);
 
-            // save to disk
-            image.Save(_options.OutputFile, ImageFormat.Png);
+            SaveBmpToPng(bmp, _options.OutputFile);
 
             var info = new FileInfo(_options.OutputFile);
             Console.Out.WriteLine("Wrote file to " + info.FullName);
@@ -59,7 +57,7 @@ namespace CashlessImage
 
         public void ExtractDataFromImage()
         {
-            Bitmap inputImage = new Bitmap(_options.ImgInputFile);
+            SKBitmap inputImage = LoadBmpFromFile(_options.ImgInputFile);
             int width = inputImage.Width;
             int height = inputImage.Height;
 
@@ -88,6 +86,12 @@ namespace CashlessImage
             var pixelPtr = 0;
             int pixelDataPtr = -1;
 
+            //Dump(injectData, "before header");
+
+            injectData = AddHeader(injectData);
+
+            //Dump(injectData, "after header");
+
             while (pixelPtr<pixels.Length)
             {
                 if (IsWriteableVisualArea(pixelPtr, width, height))
@@ -98,7 +102,6 @@ namespace CashlessImage
                     pixelData[pixelDataPtr] = injectData[injectPtr++];
                     pixelDataPtr = NextWriteableBit(pixelDataPtr);
                     pixelPtr = pixelDataPtr / 32;
-
                 }
                 else
                 {
@@ -107,37 +110,101 @@ namespace CashlessImage
                 }
 
                 // if we run out of data to write just
-                // write it again (for symmetry)
+                // write it again (for visual symmetry)
                 if (injectPtr == injectData.Length)
                     injectPtr = 0;
+
+                // once we run out of data to write just stop
+                //if (injectPtr == injectData.Length)
+                //    break;
             }
 
-            var retVal = new int[pixelData.Length];
+            var retVal = new int[pixels.Length];
             pixelData.CopyTo(retVal, 0);
+
+            //Dump(pixelData, "pixel data");
             return retVal;
         }
 
+        private void Dump(BitArray data, string label)
+        {
+            var tmp = new byte[data.Length / 8];
+            data.CopyTo(tmp, 0);
+            Console.Out.WriteLine("---------" + label + "---------");
+            foreach (var byt in tmp)
+            {
+                Console.Out.WriteLine(Convert.ToString(byt, 2).PadLeft(8, '0'));
+            }
+            Console.Out.WriteLine("---------/" + label + "---------");
+
+        }
+
+        public BitArray AddHeader(BitArray injectData)
+        {
+            // FIXME check that length is not longer than available data
+            int dataLength = injectData.Length;
+            int bitsPer = _options.BitsPerColor;
+            BitArray header = new BitArray(new int[] { dataLength, bitsPer });
+
+            // this sure looks inefficient, but bitArray's can't copyTo()
+            // into another bitArray so bounce it through this array of bits
+            byte[] bits = new byte[(header.Length + injectData.Length)/8];
+            header.CopyTo(bits, 0);
+            injectData.CopyTo(bits, header.Length/8);
+            return new BitArray(bits);
+        }
+
+        public void ReadHeader(BitArray data, out int dataLength, out int bitsPerColor)
+        {
+            // kinda inefficient to allocate an array of full length
+            // only to use the first to values but so be it
+            var vals = new UInt32[data.Length/32];
+            Dump(data, "for");
+            data.CopyTo(vals, 0);
+            dataLength = (int) vals[0];
+            bitsPerColor = (int) vals[1];
+        }
 
         public byte[] ExtractData(
-            IEnumerable<int> pixelsEnum,
+            IEnumerable<int> pixels,
             int width,
             int height)
         {
-            var pixels = pixelsEnum.ToArray();
-            var pixelData = new BitArray(pixels);
-            var extractData = new BitArray(pixels.Length);
+            var pixelsArr = pixels.ToArray();
+            var pixelData = new BitArray(pixelsArr);
+            BitArray extractData = null;
+            var headerData = new BitArray(32 * 2);
             var extractPtr = 0;
             var pixelPtr = 0;
             int pixelDataPtr = -1;
 
-            while (pixelPtr < pixels.Length)
+            int dataLength = int.MaxValue;
+            int bitsPerColor;
+
+            while (pixelPtr < pixelsArr.Length && extractPtr < dataLength)
             {
                 if (IsWriteableVisualArea(pixelPtr, width, height))
                 {
                     if (pixelDataPtr == -1)
                         pixelDataPtr = pixelPtr * 32;
 
-                    extractData[extractPtr++] = pixelData[pixelDataPtr];
+                    if (extractData == null)
+                    {
+                        headerData[extractPtr++] = pixelData[pixelDataPtr];
+
+                        if (extractPtr == 64)
+                        {
+                            ReadHeader(headerData, out dataLength, out bitsPerColor);
+                            extractData = new BitArray(dataLength);
+                            extractPtr = 0;
+                            //Dump(headerData, "header");
+                        }
+                    }
+                    else
+                    {
+                        extractData[extractPtr++] = pixelData[pixelDataPtr];
+                    }
+
                     pixelDataPtr = NextWriteableBit(pixelDataPtr);
                     pixelPtr = pixelDataPtr / 32;
                 }
@@ -146,12 +213,9 @@ namespace CashlessImage
                     pixelDataPtr = -1;
                     pixelPtr++;
                 }
-
             }
 
-            // truncate at that length
-            extractData.Length = extractPtr + 1;
-            var retVal = new byte[extractData.Length / 8 +1];
+            var retVal = new byte[extractData.Length / 8];
             extractData.CopyTo(retVal, 0);
             return retVal;
         }
@@ -159,45 +223,107 @@ namespace CashlessImage
         // Use this to ensure we only write to a rectangle within the image
         public bool IsWriteableVisualArea(int pixelPtr, int width, int height)
         {
+            // SKIP FOR NOW
+            return true;
+
             var x = pixelPtr % width;
             var y = pixelPtr / width;
-            bool xInRange = (x > (width / 2) && x < (4 * width / 5));
-            bool yInRange = (y > (9 * height / 12) && y < (10 * height / 12));
+            int minX = width / 2;
+            int maxX = 4 * width / 5;
+            int minY = 9 * height / 12;
+            int maxY = 10 * height / 12;
+
+            while (maxX - minX < 10)
+            {
+                minX--;
+                maxX++;
+            }
+
+            while (maxY - minY < 10)
+            {
+                minY--;
+                minY++;
+            }
+
+            bool xInRange = (minX <= x) && (x <= maxX);
+            bool yInRange = (minY <= y) && (y <= maxY);
             return (xInRange && yInRange);
         }
 
-        public int NextWriteableBit(int pixelPtr)
+        public int NextWriteableMSBFirst(int pixelDataPtr)
         {
             // number of low bits to write per pixel
             int bits_per = _options.BitsPerColor;
 
-            int ptr = pixelPtr % 32;
-            bool isAlpha = ptr >= 24;
-            bool nextBitWritable =
-                isAlpha ? ptr < 31
-                : (ptr % 8) < (bits_per - 1);
+            int ptr = pixelDataPtr % 32;
+            bool isAlpha = ptr < 8;
+            bool isEndOfComponent = (ptr + 1) % 8 == 0;
+            bool isEndOfColor = (ptr + 1) % 32 == 0;
 
-            if (nextBitWritable)
+            if (isEndOfColor)
             {
-                // stay within the current component 
-                return pixelPtr + 1;
+                // start next component - will be alpha
+                return pixelDataPtr + 1;
             }
-            else if (isAlpha) // && !nextBitWritable 
+            else if (isAlpha && !isEndOfComponent)
             {
-                // stay within the current component
-               
-                return pixelPtr + 1;
+                // all of alpha is writeable 
+                return pixelDataPtr + 1;
             }
-            else // !isAlpha && !nextBitWritable 
+            else if (isEndOfComponent)  
             {
-                // jump to start of next component (rgba) within the color 
-                return pixelPtr + (8 - (bits_per - 1));
+                return pixelDataPtr + 1 + 8 - bits_per;
+            }
+            else 
+            {
+                // still within low order bits 
+                return pixelDataPtr + 1;
             }
         }
 
-        private Bitmap ImageFromPixels(IEnumerable<int> pixels, int width, int height)
+        public int NextWriteableLSBFirst(int pixelDataPtr)
         {
-            Bitmap bmp = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+            // number of low bits to write per pixel
+            int bits_per = _options.BitsPerColor;
+
+            int ptr = pixelDataPtr % 32;
+            bool isAlpha = ptr < 8;
+            bool isEndOfComponent = (ptr + 1) % 8 == 0;
+            bool isEndOfColor = (ptr + 1) % 32 == 0;
+
+            bool stillWithinLOB = (ptr +1) % 8 < bits_per;
+
+            if (stillWithinLOB)
+            {
+                // stay within the current component 
+                return pixelDataPtr + 1;
+            }
+            else if (isAlpha && !isEndOfComponent)
+            {
+                // all of alpha is writeable 
+                return pixelDataPtr + 1;
+            }
+            else if (isEndOfColor)
+            {
+                // one step should take us into alpha
+                return pixelDataPtr + 1;
+            }
+            else
+            {
+                // jump to start of next component (rgba)
+                return pixelDataPtr + (8 - ptr % 8);
+            }
+        }
+
+        public int NextWriteableBit(int pixelDataPtr)
+        {
+           return NextWriteableLSBFirst(pixelDataPtr);
+        }
+
+        public SKBitmap BitmapFromPixels(IEnumerable<int> pixels, int width, int height)
+        {
+            SKBitmap bmp = new SKBitmap(width, height, SKColorType.Rgba8888, SKAlphaType.Unpremul);
+
             var enumerator = pixels.GetEnumerator();
             bool pixelsLeft = true;
             int y = 0;
@@ -205,15 +331,15 @@ namespace CashlessImage
             {
                 for (int x = 0; x < bmp.Width; x++)
                 {
-                    Color nextPixel;
+                    SKColor nextPixel;
                     if (enumerator.MoveNext())
                     {
-                        nextPixel = Color.FromArgb(enumerator.Current);
+                        nextPixel = (SKColor) (UInt32) enumerator.Current;
                     }
                     else
                     {
                         pixelsLeft = false;
-                        nextPixel = Color.Black;
+                        nextPixel = SKColor.Empty;
                     }
                     bmp.SetPixel(x, y, nextPixel);
                 }
@@ -222,15 +348,10 @@ namespace CashlessImage
             return bmp;
         }
 
-        private Bitmap ResizeBitmap(Bitmap bmp, int desiredWidth, int desiredHeight)
+        public IEnumerable<int> PixelDataFromImage(SKBitmap bmp)
         {
-            var rect = new Rectangle(new Point(0, 0), new Size(desiredWidth, desiredHeight));
-            return bmp.Clone(rect, bmp.PixelFormat);
-        }
-
-        public IEnumerable<int> PixelDataFromImage(Bitmap bmp)
-        {
-            if (bmp.PixelFormat != PixelFormat.Format32bppArgb)
+            if (bmp.Info.ColorType != SKColorType.Bgra8888
+                || bmp.Info.AlphaType != SKAlphaType.Unpremul)
             {
                 bmp = ARGBBitmapFromImage(bmp);
             }
@@ -240,30 +361,51 @@ namespace CashlessImage
                 for (int x = 0; x < bmp.Width; x++)
                 {
                     var pixel = bmp.GetPixel(x, y);
-                    yield return pixel.ToArgb();
+                    yield return (int) ((UInt32) pixel);
                 }
             }
         }
 
-        public Bitmap ARGBBitmapFromImage(Bitmap orig)
+        public SKBitmap ARGBBitmapFromImage(SKBitmap orig)
         {
-            Bitmap clone = new Bitmap(orig.Width, orig.Height,
-                System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
-
-            using (Graphics gr = Graphics.FromImage(clone))
-            {
-                gr.DrawImage(orig, new Rectangle(0, 0, clone.Width, clone.Height));
-            }
-            return clone;
+            return orig;
+            //FIXME convert format 
         }
 
         public BitArray BitArrayFromFile(string filePath)
         {
             using (Stream stream = File.OpenRead(filePath))
             {
-                byte[] bytes = new byte[stream.Length];
-                stream.Read(bytes, 0, bytes.Length);
-                return new BitArray(bytes);
+                return BitArrayFromStream(stream);
+            }
+        }
+
+        public BitArray BitArrayFromStream(Stream stream)
+        {   
+            byte[] bytes = new byte[stream.Length];
+            stream.Read(bytes, 0, bytes.Length);
+            return new BitArray(bytes);
+        }
+
+        public void SaveBmpToPng(SKBitmap bmp, string outputFileName)
+        {
+            // create an image and then get the PNG (or any other) encoded data
+            using (var image = SKImage.FromBitmap(bmp))
+            using (var data = image.Encode(SKEncodedImageFormat.Png, 100))
+            {
+                // save the data to a stream
+                using (var stream = File.OpenWrite(outputFileName))
+                {
+                    data.SaveTo(stream);
+                }
+            }
+        }
+
+        public SKBitmap LoadBmpFromFile(string inputFilePath)
+        {
+            using (var fs = new FileStream(inputFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                return SKBitmap.Decode(fs);
             }
         }
     }
