@@ -98,19 +98,19 @@ namespace CashlessImageTest
             var pixels = new int[] { 0, 0, 0, 0, 0, 0, 0, 0 };
             var pixelData = new BitArray(pixels);
             
+            HeaderStruct src = new HeaderStruct()
+            {
+                DataLength = 1234,
+                BitsPerPixel = 2
+            };
             int pixelPtr;
-            int dataLengthSrc = 1234;
-            int bitsPerSrc = 2;
-            pixelData = _imageMaker.WriteHeader(pixelData, 
-                dataLengthSrc, bitsPerSrc, out pixelPtr);
-           
-            int dataLengthOut;
-            int bitsPerOut;
-
-            _dataMaker.ReadHeader(pixelData, out pixelPtr, out dataLengthOut, out bitsPerOut);
+            pixelData = _imageMaker.WriteHeader(pixelData, src, out pixelPtr);
+   
+            HeaderStruct result =
+                _dataMaker.ReadHeader(pixelData, out pixelPtr);
             Assert.AreEqual(BaseMaker.HEADER_LENGTH / 32 + 2, pixelPtr);
-            Assert.AreEqual(dataLengthSrc, dataLengthOut);
-            Assert.AreEqual(bitsPerSrc, bitsPerOut);
+            Assert.AreEqual(src.DataLength, result.DataLength);
+            Assert.AreEqual(src.BitsPerPixel, result.BitsPerPixel);
         }
 
         [Test]

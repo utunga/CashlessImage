@@ -11,6 +11,7 @@ using System.Linq;
 using System.Diagnostics;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Formats.Bmp;
+using System.Runtime.InteropServices;
 
 namespace CashlessImage
 {
@@ -70,11 +71,13 @@ namespace CashlessImage
         {
             var pixelData = new BitArray(pixels);
 
+            HeaderStruct header = new HeaderStruct()
+            {
+                DataLength = data.Length,
+                BitsPerPixel = BitsPer
+            };
             int pixelPtr;
-            pixelData = WriteHeader(pixelData,
-                dataLength: data.Length,
-                bitsPer: BitsPer,
-                out pixelPtr);
+            pixelData = WriteHeader(pixelData, header, out pixelPtr);
 
             int dataPtr = 0; 
             int pixelBitPtr = -1;
@@ -111,15 +114,17 @@ namespace CashlessImage
             return retVal;
         }
 
-        public BitArray WriteHeader(BitArray pixelData, int dataLength, int bitsPer, out int pixelPtr)
+        public BitArray WriteHeader(BitArray pixelData, HeaderStruct header, out int pixelPtr)
         {
-            BitArray header = new BitArray(new int[] { dataLength, bitsPer });
+            var bytes = header.ToBytes();
+            BitArray headerBits = new BitArray(bytes);
+
             //Dump(header, "Header to write");
             var dataPtr = 0;
             int pixelDataPtr = NextWriteableBitHeader(-1);
             while (dataPtr < HEADER_LENGTH)
             {
-                pixelData[pixelDataPtr] = header[dataPtr++];
+                pixelData[pixelDataPtr] = headerBits[dataPtr++];
                 pixelDataPtr = NextWriteableBitHeader(pixelDataPtr);
             }
             // finish off this pixel, then go to next pixel

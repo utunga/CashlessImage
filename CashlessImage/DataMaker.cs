@@ -50,14 +50,13 @@ namespace CashlessImage
             int height)
         {
             var pixelData = new BitArray(pixels);
+
             
-            int bitsPerColor;
-            int dataLength;
             int pixelPtr;
-            ReadHeader(pixelData, out pixelPtr, out dataLength, out bitsPerColor);
-            BitsPer = bitsPerColor;
-            //pixelPtr = 4;
-            
+            HeaderStruct header = 
+                ReadHeader(pixelData, out pixelPtr);
+            BitsPer = header.BitsPerPixel;
+            int dataLength = header.DataLength;
             BitArray data = new BitArray(dataLength);
             //Dump(pixelData, "pixel data to extract");
 
@@ -87,8 +86,7 @@ namespace CashlessImage
             return retVal;
         }
 
-        public void ReadHeader(BitArray pixelData, 
-            out int pixelPtr, out int dataLength, out int bitsPerColor)
+        public HeaderStruct ReadHeader(BitArray pixelData, out int pixelPtr)
         {
             var dataPtr = 0;
             int pixelDataPtr = NextWriteableBitHeader(-1);
@@ -102,10 +100,9 @@ namespace CashlessImage
             // finish off this pixel, then go to next pixel
             pixelPtr = (pixelDataPtr / 32) + 1 + 1;
             Dump(data, "Read header");
-            var vals = new int[data.Length / 32];
-            data.CopyTo(vals, 0);
-            dataLength = (int)vals[0];
-            bitsPerColor = (int)vals[1];
+            var bytes = new byte[data.Length / 8];
+            data.CopyTo(bytes, 0);
+            return HeaderStruct.FromBytes(bytes);
         }
 
     }
