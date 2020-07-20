@@ -15,8 +15,7 @@ namespace CashlessImage
     {
         public abstract void Run();
 
-        public const int HEADER_LENGTH = 32 * 2;
-        public int BitsPer { get; set; }
+        public HeaderStruct Header = new HeaderStruct();
 
         public int NextWriteableBit(int pixelDataPtr)
         {
@@ -26,7 +25,7 @@ namespace CashlessImage
         /// <summary>
         /// when writing header, use all 8 bits but leave alpha alone 
         /// </summary>
-        public int NextWriteableBitHeader(int pixelDataPtr)
+        public int NextWritableBitHeader(int pixelDataPtr)
         {
             bool isEndOfColor = (pixelDataPtr + 1) % 32 == 0;
             if (isEndOfColor)
@@ -43,7 +42,7 @@ namespace CashlessImage
         public int NextWriteableLSBFirst(int pixelDataPtr)
         {
             // number of low bits to write per pixel
-            int bits_per = BitsPer;
+            int bits_per = Header.BitsPerPixel;
 
             int ptr = pixelDataPtr % 32;
             bool isAlpha = ptr < 8;
@@ -77,7 +76,7 @@ namespace CashlessImage
         public int NextWriteableMSBFirst(int pixelDataPtr)
         {
             // number of low bits to write per pixel
-            int bits_per = BitsPer;
+            int bits_per = Header.BitsPerPixel;
 
             int ptr = pixelDataPtr % 32;
             bool isAlpha = ptr < 8;
@@ -106,29 +105,17 @@ namespace CashlessImage
         }
 
         // Use this to ensure we only write to a rectangle within the image
-        public bool IsWritablePixel(int pixelPtr, int width, int height)
+        public bool IsWritablePixel(HeaderStruct header, int pixelPtr, int width, int height)
         {
-            // SKIP FOR NOW
-            return true;
-
             var x = pixelPtr % width;
             var y = pixelPtr / width;
-            int minX = width / 2;
-            int maxX = 4 * width / 5;
-            int minY = 9 * height / 12;
-            int maxY = 10 * height / 12;
+            int minX = header.MinX;
+            int maxX = header.MaxX;
+            int minY = header.MinY;
+            int maxY = header.MaxY;
 
-            while (maxX - minX < 10)
-            {
-                minX--;
-                maxX++;
-            }
-
-            while (maxY - minY < 10)
-            {
-                minY--;
-                minY++;
-            }
+            if (minX == maxX && minY == maxY)
+                return true; // if not set, dont constrain at all
 
             bool xInRange = (minX <= x) && (x <= maxX);
             bool yInRange = (minY <= y) && (y <= maxY);
@@ -166,7 +153,6 @@ namespace CashlessImage
             return result;
         }
 
-       
         protected static void Dump(BitArray data, string label)
         {
             var tmp = new byte[data.Length / 8];

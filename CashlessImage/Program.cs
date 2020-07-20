@@ -115,22 +115,22 @@ namespace CashlessImage
             {
                 var imageMaker = new ImageMaker()
                 {
-                    BitsPer = options.BitsPerColor,
                     ImgInputFile = options.ImgInputFile,
                     ImgOutputFile = options.ImgOutputFile,
                     DataFile = options.DataFile
                 };
+                imageMaker.Header.BitsPerPixel = options.BitsPerColor;
                 imageMaker.Run();
             }
             else if (options.Direction == ProcessingDirection.ToData)
             {
-                var dataExtract = new DataMaker()
+                var dataMaker = new DataMaker()
                 {
-                    BitsPer = options.BitsPerColor,
                     ImgInputFile = options.ImgInputFile,
                     DataFile = options.DataFile
                 };
-                dataExtract.Run();
+                dataMaker.Header.BitsPerPixel = options.BitsPerColor;
+                dataMaker.Run();
             }
      
         }

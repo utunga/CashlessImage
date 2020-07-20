@@ -21,36 +21,42 @@ namespace CashlessImageTest
         {
             _imageMaker = new ImageMaker()
             {
-                BitsPer = 2,
                 ImgInputFile = "../../test_input.png",
                 DataFile = "../../test_data.txt"
             };
+            _imageMaker.Header.BitsPerPixel = 2;
             _dataMaker = new DataMaker()
             {
-                BitsPer = 2,
                 ImgInputFile = "../../test_input.png",
                 DataFile = "../../test_data.txt"
             };
+            _dataMaker.Header.BitsPerPixel = 2;
         }
 
         [Test]
-        [Ignore("Skip writeable visual area logic for now")]
         public void TestWriteableVisualArea()
         {
+            HeaderStruct header = new HeaderStruct()
+            {
+                MinX = 50,
+                MaxX = 80,
+                MinY = 50,
+                MaxY = 80
+            };
             Assert.AreEqual(false, _imageMaker
-                .IsWritablePixel(0, 100, 100));
+                .IsWritablePixel(header, 0, 100, 100));
             Assert.AreEqual(true, _imageMaker
-                .IsWritablePixel(51 + 51 * 100, 100, 100));
+                .IsWritablePixel(header, 50 + 50 * 100, 100, 100));
             Assert.AreEqual(true, _imageMaker
-                .IsWritablePixel(78 + 78 * 100, 100, 100));
+                .IsWritablePixel(header, 78 + 78 * 100, 100, 100));
             Assert.AreEqual(true, _imageMaker
-                .IsWritablePixel(51 + 78 * 100, 100, 100));
+                .IsWritablePixel(header, 51 + 78 * 100, 100, 100));
             Assert.AreEqual(false, _imageMaker
-                .IsWritablePixel(81 + 51 * 100, 100, 100));
+                .IsWritablePixel(header, 81 + 51 * 100, 100, 100));
             Assert.AreEqual(false, _imageMaker
-                .IsWritablePixel(51 + 81 * 100, 100, 100));
+                .IsWritablePixel(header, 51 + 81 * 100, 100, 100));
             Assert.AreEqual(false, _imageMaker
-                .IsWritablePixel(90 + 90 * 100, 100, 100));
+                .IsWritablePixel(header, 90 + 90 * 100, 100, 100));
         }
 
         [Test]
@@ -97,15 +103,15 @@ namespace CashlessImageTest
             
             HeaderStruct src = new HeaderStruct()
             {
-                DataLength = 1234,
-                BitsPerPixel = 2
+                DataLength = 1024+255,
+                BitsPerPixel = 255
             };
             int pixelPtr;
             pixelData = _imageMaker.WriteHeader(pixelData, src, out pixelPtr);
    
-            HeaderStruct result =
-                _dataMaker.ReadHeader(pixelData, out pixelPtr);
-            Assert.AreEqual(BaseMaker.HEADER_LENGTH / 32 + 2, pixelPtr);
+            HeaderStruct result = _dataMaker.ReadHeader(pixelData, out pixelPtr);
+            
+            Assert.AreEqual((HeaderStruct.BitSize *4) / (3*32) + 2, pixelPtr);
             Assert.AreEqual(src.DataLength, result.DataLength);
             Assert.AreEqual(src.BitsPerPixel, result.BitsPerPixel);
         }
@@ -148,7 +154,6 @@ namespace CashlessImageTest
                     Convert.ToString(pixel,2).PadLeft(32, '0'));
             }
 
-
             // pixels with a starting value 0 to ensure we get uint
             var color = Color.Red;
             pixels = _imageMaker.PixelsFromImage(_FilledSquare(color, 10, 10));
@@ -175,25 +180,24 @@ namespace CashlessImageTest
         }
 
         [Test]
-        public void RoundTripDataReadsBitsPerPixel()
+        public void RoundTripDataReadsHeader()
         {
             var testData = new byte[] { 1, 2, 3, 4 };
             var dataToInject = new BitArray(testData);
             var bmp = _FilledSquare(Color.White, 10, 10);
             var whitePixels = _imageMaker.PixelsFromImage(bmp);
 
-            var imageMaker = new ImageMaker()
-            {
-                BitsPer = 2
-            };
+            var imageMaker = new ImageMaker();
+            imageMaker.Header.BitsPerPixel = 2;
+
             var dataMaker = new DataMaker();
+            dataMaker.Header.BitsPerPixel = -1;
           
             var injectedPixels = imageMaker.InjectData(whitePixels, dataToInject, 10, 10);
 
             byte[] extractedData = dataMaker.ExtractData(injectedPixels, 10, 10);
 
             Assert.AreEqual(testData, extractedData);
-            //var result = Encoding.UTF8.GetString(extractedData);
         }
 
         [Test]
@@ -204,16 +208,32 @@ namespace CashlessImageTest
             {
                 testPixels[i] = i+64;
             }
-            var bmp = _imageMaker.ImageFromPixels(testPixels, 2, 2);
+            var img = _imageMaker.ImageFromPixels(testPixels, 2, 2);
+            var resultPixels = _dataMaker.PixelsFromImage(img);
 
-            var resultPixels = _dataMaker.PixelsFromImage(bmp);
-            Dump(testPixels, "testPixels");
-            Dump(resultPixels, "resultPixels");
-            //for (int i = 0; i < 1000; i++)
-            //{
-            //    testPixels[i] = i;
-            //}
             Assert.AreEqual(testPixels, resultPixels.ToArray());
+        }
+
+        [Test]
+        public void RoundTripDataWritablePixels()
+        {
+            var testData = new byte[] { 213, 214, 215, 216 };
+            var dataToInject = new BitArray(testData);
+            var bmp = _FilledSquare(Color.White, 10, 10);
+            var whitePixels = _imageMaker.PixelsFromImage(bmp);
+
+            var imageMaker = new ImageMaker();
+            imageMaker.Header.BitsPerPixel = 8;
+            imageMaker.Header.SetWritableRange(4, 8, 4, 8);
+
+            var dataMaker = new DataMaker();
+            
+            var injectedPixels = imageMaker.InjectData(whitePixels, dataToInject, 10, 10);
+            Dump(injectedPixels, "Injected pixels");
+
+            byte[] extractedData = dataMaker.ExtractData(injectedPixels, 10, 10);
+
+            Assert.AreEqual(testData, extractedData);
         }
 
         [Test]
@@ -245,11 +265,12 @@ namespace CashlessImageTest
             File.WriteAllText(dataFilePath, testData, Encoding.UTF8);
             var imageMaker = new ImageMaker()
             {
-                BitsPer = 2,
                 ImgInputFile = "test_input.png",
                 ImgOutputFile = injectedImagePath,
                 DataFile = dataFilePath
             };
+            imageMaker.Header.BitsPerPixel = 2;
+            imageMaker.Header.SetWritableRange(105, 165, 150, 200);
             imageMaker.Run();
 
             var dataFilePath2 = Path.GetTempFileName();

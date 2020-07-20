@@ -60,20 +60,16 @@ namespace CashlessImage
             int height)
         {
             var pixelData = new BitArray(pixels);
-
-            HeaderStruct header = new HeaderStruct()
-            {
-                DataLength = data.Length,
-                BitsPerPixel = BitsPer
-            };
+            Header.DataLength = data.Length;
+           
             int pixelPtr;
-            pixelData = WriteHeader(pixelData, header, out pixelPtr);
+            pixelData = WriteHeader(pixelData, Header, out pixelPtr);
 
             int dataPtr = 0; 
             int pixelBitPtr = -1;
             while (pixelPtr < pixels.Length)
             {
-                if (IsWritablePixel(pixelPtr, width, height))
+                if (IsWritablePixel(Header, pixelPtr, width, height))
                 {
                     if (pixelBitPtr==-1)
                         pixelBitPtr = pixelPtr*32;
@@ -88,14 +84,14 @@ namespace CashlessImage
                     pixelPtr++;
                 }
 
-                // if we run out of data to write just
-                // write it again (for visual symmetry)
-                //if (injectPtr == injectData.Length)
-                //    injectPtr = 0;
+                // if we run out of data to write, just
+                // repeat it (for visual symmetry)
+                if (dataPtr == data.Length)
+                    dataPtr = 0;
 
                 // once we run out of data to write just stop
-                if (dataPtr == data.Length)
-                    break;
+                //if (dataPtr == data.Length)
+                //    break;
             }
 
             var retVal = new int[pixels.Length];
@@ -108,13 +104,12 @@ namespace CashlessImage
             var bytes = header.ToBytes();
             BitArray headerBits = new BitArray(bytes);
 
-            //Dump(header, "Header to write");
             var dataPtr = 0;
-            int pixelDataPtr = NextWriteableBitHeader(-1);
-            while (dataPtr < HEADER_LENGTH)
+            int pixelDataPtr = NextWritableBitHeader(-1);
+            while (dataPtr < headerBits.Length)
             {
                 pixelData[pixelDataPtr] = headerBits[dataPtr++];
-                pixelDataPtr = NextWriteableBitHeader(pixelDataPtr);
+                pixelDataPtr = NextWritableBitHeader(pixelDataPtr);
             }
             // finish off this pixel, then go to next pixel
             pixelPtr = (pixelDataPtr / 32) + 1 + 1;

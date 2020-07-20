@@ -43,17 +43,14 @@ namespace CashlessImage
             var pixelData = new BitArray(pixels);
 
             int pixelPtr;
-            HeaderStruct header = 
-                ReadHeader(pixelData, out pixelPtr);
-            BitsPer = header.BitsPerPixel;
-            int dataLength = header.DataLength;
-            BitArray data = new BitArray(dataLength);
+            Header = ReadHeader(pixelData, out pixelPtr);
+            BitArray data = new BitArray(Header.DataLength);
             
             var dataPtr = 0;
             int pixelBitPtr = -1;
-            while (pixelPtr < pixels.Length && dataPtr < dataLength)
+            while (pixelPtr < pixels.Length && dataPtr < data.Length)
             {
-                if (IsWritablePixel(pixelPtr, width, height))
+                if (IsWritablePixel(Header, pixelPtr, width, height))
                 {
                     if (pixelBitPtr == -1)
                         pixelBitPtr = pixelPtr * 32;
@@ -71,24 +68,22 @@ namespace CashlessImage
 
             var retVal = new byte[data.Length / 8];
             data.CopyTo(retVal, 0);
-            Dump(data, "data extracted");
             return retVal;
         }
 
         public HeaderStruct ReadHeader(BitArray pixelData, out int pixelPtr)
         {
             var dataPtr = 0;
-            int pixelDataPtr = NextWriteableBitHeader(-1);
-            BitArray data = new BitArray(HEADER_LENGTH);
-            while (dataPtr < HEADER_LENGTH)
+            int pixelDataPtr = NextWritableBitHeader(-1);
+            BitArray data = new BitArray(HeaderStruct.BitSize);
+            while (dataPtr < data.Length)
             {
                 data[dataPtr++] = pixelData[pixelDataPtr];
-                pixelDataPtr = NextWriteableBitHeader(pixelDataPtr);
+                pixelDataPtr = NextWritableBitHeader(pixelDataPtr);
             }
             // finish off this pixel, then go to next pixel
             pixelPtr = (pixelDataPtr / 32) + 1 + 1;
-            Dump(data, "Read header");
-            var bytes = new byte[data.Length / 8];
+            var bytes = new byte[HeaderStruct.BitSize / 8];
             data.CopyTo(bytes, 0);
             return HeaderStruct.FromBytes(bytes);
         }

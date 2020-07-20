@@ -10,6 +10,18 @@ namespace CashlessImage
     {
         public int DataLength;
         public int BitsPerPixel;
+        public int MinX; 
+        public int MaxX;
+        public int MinY;
+        public int MaxY;
+
+        public static int BitSize
+        {
+            get
+            {
+                return 6 * 32;
+            }
+        }
 
         public byte[] ToBytes()
         {
@@ -31,6 +43,14 @@ namespace CashlessImage
             obj = (HeaderStruct) Marshal.PtrToStructure(i, obj.GetType());
             Marshal.FreeHGlobal(i);
             return obj;
+        }
+
+        public void SetWritableRange(int minX, int maxX, int minY, int maxY)
+        {
+            MinX = minX;
+            MaxX = maxX;
+            MinY = minY;
+            MaxY = maxY;
         }
     }
 }
