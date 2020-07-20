@@ -2,6 +2,12 @@
 using System.Collections;
 using System.IO;
 using System.Collections.Generic;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Advanced;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Formats.Tga;
+using System.Runtime.InteropServices;
 
 namespace CashlessImage
 {
@@ -131,43 +137,36 @@ namespace CashlessImage
 
         #region helper methods 
 
-        public SKBitmap LoadBmpFromFile(string inputFilePath)
+        public Image<Rgba32> LoadBmpFromFile(string inputFilePath)
         {
-            using (var fs = new FileStream(inputFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-            {
-                return SKBitmap.Decode(fs);
-            }
+            return Image.Load<Rgba32>(inputFilePath);
         }
 
-        public IEnumerable<int> PixelsFromBitmap(SKBitmap bmp)
+        public int[] PixelsFromImage(Image<Rgba32> image)
         {
-            if (bmp.Info.ColorType != SKColorType.Rgba8888
-                || bmp.Info.AlphaType != SKAlphaType.Premul)
+            //if (image.TryGetSinglePixelSpan(out var pixelSpan))
+            //{
+            //    var bytes = MemoryMarshal.AsBytes(pixelSpan).ToArray();
+            //    int[] result = new int[bytes.Length / 4];
+            //    Buffer.BlockCopy(bytes, 0, result, 0, result.Length);
+            //    return result;
+            //}
+            //throw new ApplicationException("Image too big");
+            int[] result = new int[image.Width * image.Height];
+            for (int y = 0; y < image.Height; y++)
             {
-                bmp = ARGBBitmapFromImage(bmp);
-            }
-
-            for (int y = 0; y < bmp.Height; y++)
-            {
-                for (int x = 0; x < bmp.Width; x++)
+                Span<Rgba32> pixelRowSpan = image.GetPixelRowSpan(y);
+                for (int x = 0; x < image.Width; x++)
                 {
-                    var pixel = bmp.GetPixel(x, y);
-                    yield return (int)(uint)pixel;
+                    var pixel = pixelRowSpan[x];
+                    int index = image.Height * y + x;
+                    result[index] = (int)pixel.Rgba;
                 }
             }
+            return result;
         }
 
-        /// <summary>
-        /// Convert bitmap to expected ARGB format 
-        /// </summary>
-        /// <param name="orig"></param>
-        /// <returns></returns>
-        public SKBitmap ARGBBitmapFromImage(SKBitmap orig)
-        {
-            return orig;
-            //FIXME convert format 
-        }
-
+       
         protected static void Dump(BitArray data, string label)
         {
             var tmp = new byte[data.Length / 8];

@@ -3,8 +3,11 @@ using CashlessImage;
 using System.IO;
 using System.Text;
 using System;
-using System.Drawing;
-using SkiaSharp;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Advanced;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Formats.Tga;
 using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
@@ -58,8 +61,8 @@ namespace CashlessImageTest
         {
             var srcData = new byte[] {1, 2, 3, 4};
             var data = new BitArray(srcData);
-            var bmp = _FilledSquare(SKColors.White, 4, 4);
-            var pixels = _imageMaker.PixelsFromBitmap(bmp);
+            var bmp = _FilledSquare(Color.White, 4, 4);
+            var pixels = _imageMaker.PixelsFromImage(bmp);
 
             var blended = _imageMaker.InjectData(pixels, data, bmp.Width, bmp.Height);
 
@@ -79,8 +82,8 @@ namespace CashlessImageTest
             var stream = _StreamFromString(srcData);
             var data = _imageMaker.BitArrayFromStream(stream);
 
-            var bmp = _FilledSquare(SKColors.White, 10, 10);
-            var pixels = _imageMaker.PixelsFromBitmap(bmp);
+            var bmp = _FilledSquare(Color.White, 10, 10);
+            var pixels = _imageMaker.PixelsFromImage(bmp);
 
             var blended = _imageMaker.InjectData(pixels, data, bmp.Width, bmp.Height);
           
@@ -105,7 +108,7 @@ namespace CashlessImageTest
             int bitsPerOut;
 
             _dataMaker.ReadHeader(pixelData, out pixelPtr, out dataLengthOut, out bitsPerOut);
-            Assert.AreEqual(BaseMaker.HEADER_LENGTH / 32 + 1, pixelPtr);
+            Assert.AreEqual(BaseMaker.HEADER_LENGTH / 32 + 2, pixelPtr);
             Assert.AreEqual(dataLengthSrc, dataLengthOut);
             Assert.AreEqual(bitsPerSrc, bitsPerOut);
         }
@@ -125,7 +128,7 @@ namespace CashlessImageTest
         public void TestPixelDataFromImage()
         {
             // should get 100 pixels of pure white
-            var pixels = _imageMaker.PixelsFromBitmap(_FilledSquare(SKColors.White, 10, 10));
+            var pixels = _imageMaker.PixelsFromImage(_FilledSquare(Color.White, 10, 10));
 
             Assert.AreEqual(100, pixels.Count());
             foreach (var pixel in pixels)
@@ -137,7 +140,7 @@ namespace CashlessImageTest
             }
 
             // should get 100 pixels of pure black
-            pixels = _imageMaker.PixelsFromBitmap(_FilledSquare(SKColors.Black, 10, 10));
+            pixels = _imageMaker.PixelsFromImage(_FilledSquare(Color.Black, 10, 10));
 
             Assert.AreEqual(100, pixels.Count());
             foreach (var pixel in pixels)
@@ -150,36 +153,36 @@ namespace CashlessImageTest
 
 
             // pixels with a starting value 0 to ensure we get uint
-            var color = SKColors.Blue.WithAlpha(13);
-            pixels = _imageMaker.PixelsFromBitmap(_FilledSquare(color, 10, 10));
+            var color = Color.Red;
+            pixels = _imageMaker.PixelsFromImage(_FilledSquare(color, 10, 10));
 
             Assert.AreEqual(100, pixels.Count());
             foreach (var pixel in pixels)
             {
                 //all black == 000 except alpha channel which is all 111s
                 Assert.AreEqual(
-                    "00001101000000000000000011111111",
+                    "11111111000000000000000011111111",
                     Convert.ToString(pixel, 2).PadLeft(32, '0'));
             }
         }
 
-        [Test]
-        public void TestSKColorsInt()
-        {
-            var pixel = SKColor.Parse("#F000FF").WithAlpha(14);
-            // 14 == 00001110 == alpha channel, then r,g,b
-            string expected = "00001110111100000000000011111111";
-            Assert.AreEqual(expected, Convert.ToString((uint) pixel, 2).PadLeft(32, '0'));
-        }
-
+        //[Test]
+        //public void TestColorsInt()
+        //{
+        //    var color = Color.Parse("#F000FF").WithAlpha(14);
+        //    var pixel = color.ToPixel<Rgba32>();
+        //    // 14 == 00001110 == alpha channel, then r,g,b
+        //    string expected = "00001110111100000000000011111111";
+        //    Assert.AreEqual(expected, Convert.ToString(pixel., 2).PadLeft(32, '0'));
+        //}
 
         [Test]
         public void RoundTripDataReadsBitsPerPixel()
         {
             var testData = new byte[] { 1, 2, 3, 4 };
             var dataToInject = new BitArray(testData);
-            var bmp = _FilledSquare(SKColors.White, 10, 10);
-            var whitePixels = _imageMaker.PixelsFromBitmap(bmp);
+            var bmp = _FilledSquare(Color.White, 10, 10);
+            var whitePixels = _imageMaker.PixelsFromImage(bmp);
 
             var imageMaker = new ImageMaker()
             {
@@ -203,9 +206,9 @@ namespace CashlessImageTest
             {
                 testPixels[i] = i+64;
             }
-            var bmp = _imageMaker.BitmapFromPixels(testPixels, 2, 2);
+            var bmp = _imageMaker.ImageFromPixels(testPixels, 2, 2);
 
-            var resultPixels = _dataMaker.PixelsFromBitmap(bmp);
+            var resultPixels = _dataMaker.PixelsFromImage(bmp);
             Dump(testPixels, "testPixels");
             Dump(resultPixels, "resultPixels");
             //for (int i = 0; i < 1000; i++)
@@ -218,18 +221,18 @@ namespace CashlessImageTest
         [Test]
         public void RoundTripDataThroughBitmapFiles()
         {
-            var testPixels = new int[1000];
-            for (int i = 0; i < 1000; i++)
+            var testPixels = new int[100];
+            for (int i = 0; i < 100; i++)
             {
                 testPixels[i] = i;
             }
             var testFilePath = Path.Join(Path.GetTempPath(), Path.GetRandomFileName() + ".png");
 
-            var bmp = _imageMaker.BitmapFromPixels(testPixels, 10, 10);
-            _imageMaker.SaveBmpToPng(bmp, testFilePath);
+            var bmp = _imageMaker.ImageFromPixels(testPixels, 10, 10);
+            _imageMaker.SaveImageToPng(bmp, testFilePath);
 
             var bmpResult = _dataMaker.LoadBmpFromFile(testFilePath);
-            var resultPixels = _dataMaker.PixelsFromBitmap(bmpResult);
+            var resultPixels = _dataMaker.PixelsFromImage(bmpResult);
             Assert.AreEqual(testPixels, resultPixels);
         }
 
@@ -318,20 +321,9 @@ namespace CashlessImageTest
             return new MemoryStream(Encoding.UTF8.GetBytes(value ?? ""));
         }
 
-        private static SKBitmap _FilledSquare(SKColor color, int width, int height)
+        private static Image<Rgba32> _FilledSquare(Color color, int width, int height)
         {
-            SKBitmap bmp = new SKBitmap(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
-            using (SKCanvas canvas = new SKCanvas(bmp))
-            {
-                SKRect rect = new SKRect(0, 0, width, height);
-                canvas.DrawRect(rect, new SKPaint()
-                {
-                    Style = SKPaintStyle.Fill,
-                    Color = color
-                });
-            }
-
-            return bmp;
+            return new Image<Rgba32>(width, height, color);
         }
 
         protected static void Dump(IEnumerable<int> data, string label)

@@ -1,9 +1,16 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using SkiaSharp;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Advanced;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Formats.Tga;
 using System.IO;
 using System.Linq;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp;
+using System.Runtime.InteropServices;
 
 namespace CashlessImage
 {
@@ -21,11 +28,11 @@ namespace CashlessImage
 
         public void ExtractDataFromImage()
         {
-            SKBitmap inputImage = LoadBmpFromFile(ImgInputFile);
+            Image<Rgba32> inputImage = LoadBmpFromFile(ImgInputFile);
             int width = inputImage.Width;
             int height = inputImage.Height;
 
-            IEnumerable<int> pixels = PixelsFromBitmap(inputImage);
+            int[] pixels = PixelsFromImage(inputImage);
             byte[] extractedData = ExtractData(pixels, width, height);
 
             using (var fs = new FileStream(DataFile, FileMode.Create, FileAccess.Write))
@@ -38,13 +45,11 @@ namespace CashlessImage
         }
 
         public byte[] ExtractData(
-            IEnumerable<int> pixels,
+            int[] pixels,
             int width,
             int height)
         {
-            var pixelsArr = pixels.ToArray();
-            var pixelData = new BitArray(pixelsArr);
-            
+            var pixelData = new BitArray(pixels);
             
             int bitsPerColor;
             int dataLength;
@@ -58,7 +63,7 @@ namespace CashlessImage
 
             var dataPtr = 0;
             int pixelBitPtr = -1;
-            while (pixelPtr < pixelsArr.Length && dataPtr < dataLength)
+            while (pixelPtr < pixels.Length && dataPtr < dataLength)
             {
                 if (IsWritablePixel(pixelPtr, width, height))
                 {

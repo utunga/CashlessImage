@@ -15,10 +15,4 @@
   <ItemGroup>
     <ProjectReference Include="..\CashlessImage\CashlessImage.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <None Update="test_input.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
 </Project>

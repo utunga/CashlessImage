@@ -1,10 +1,16 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using SkiaSharp;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Advanced;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Formats.Tga;
 using System.IO;
 using System.Linq;
 using System.Diagnostics;
+using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Formats.Bmp;
 
 namespace CashlessImage
 {
@@ -29,31 +35,40 @@ namespace CashlessImage
 
         public void MergeDataIntoImage()
         {
-            SKBitmap inputImage = LoadBmpFromFile(ImgInputFile);
+            Image<Rgba32> inputImage = LoadBmpFromFile(ImgInputFile);
             int width = inputImage.Width;
             int height = inputImage.Height;
             BitArray dataToInject = BitArrayFromFile(DataFile);
 
-            IEnumerable<int> pixels = PixelsFromBitmap(inputImage);
-            IEnumerable<int> injectedPixels = InjectData(pixels, dataToInject, width, height);
+            int[] pixelData = PixelsFromImage(inputImage);
 
-            var bmp = BitmapFromPixels(injectedPixels, width, height);
+            // check its big enough target image to contain the data
+            int dataSizeInPixels = dataToInject.Length / 32;
+            double fillRatio = .4;
+            if (dataSizeInPixels > pixelData.Length * fillRatio)
+            {
+                throw new ApplicationException(
+                    string.Format("{0} is not a big enough image to contain data from {1}",
+                    ImgInputFile, DataFile));
+            }
 
-            SaveBmpToPng(bmp, ImgOutputFile);
+            int[] injectedData = InjectData(pixelData, dataToInject, width, height);
+
+            var image = ImageFromPixels(injectedData, width, height);
+
+            SaveImageToPng(image, ImgOutputFile);
 
             var info = new FileInfo(ImgOutputFile);
             Console.Out.WriteLine("Wrote file to " + info.FullName);
         }
 
-        public IEnumerable<int> InjectData(
-            IEnumerable<int> pixelsEnum,
+        public int[] InjectData(
+            int[] pixels,
             BitArray data,
             int width,
             int height)
         {
-            var pixels = pixelsEnum.ToArray();
             var pixelData = new BitArray(pixels);
-
 
             int pixelPtr;
             pixelData = WriteHeader(pixelData,
@@ -113,9 +128,28 @@ namespace CashlessImage
             return pixelData;
         }
 
-        public SKBitmap BitmapFromPixels(IEnumerable<int> pixelData, int width, int height)
+        public Image<Rgba32> ImageFromPixels(int[] pixels, int width, int height)
         {
-            SKBitmap bmp = new SKBitmap(width, height, SKColorType.Rgba8888, SKAlphaType.Unknown);
+            //byte[] bytes = new byte[pixels.Length * sizeof(int)];
+            //Buffer.BlockCopy(pixels, 0, bytes, 0, bytes.Length);
+            //var image = Image.Load<Rgba32>(bytes, new BmpDecoder());
+            //image.Mutate(x => x
+            //     .Resize(width, height));
+            //return image;
+
+            Image<Rgba32> img = new Image<Rgba32>(width, height);
+            for (int y = 0; y < img.Height; y++)
+            {
+                Span<Rgba32> pixelRowSpan = img.GetPixelRowSpan(y);
+                for (int x = 0; x < img.Width; x++)
+                {
+                    var intPixel = pixels[y*img.Width + x];
+                    pixelRowSpan[x] = new Rgba32((uint)intPixel);
+                }
+            }
+            return img;
+
+            //SKBitmap bmp = new SKBitmap(width, height, SKColorType.Rgba8888, SKAlphaType.Unknown);
 
             //var pixels = pixelData.ToArray();
 
@@ -127,31 +161,31 @@ namespace CashlessImage
 
             //var pixels = pixelData.Select(i => ((SKColor)(uint)i).WithAlpha(255)).ToArray();
 
-            var enumerator = pixelData.GetEnumerator();
-            bool pixelsLeft = true;
-            int y = 0;
-            while (pixelsLeft && y < bmp.Height)
-            {
-                for (int x = 0; x < bmp.Width; x++)
-                {
-                    SKColor nextPixel;
-                    if (enumerator.MoveNext())
-                    {
-                        nextPixel = (SKColor)(uint)enumerator.Current;
-                        Debug.Assert((uint)nextPixel == enumerator.Current);
-                    }
-                    else
-                    {
-                        pixelsLeft = false;
-                        nextPixel = SKColor.Empty;
-                    }
-                    Console.Out.WriteLine(nextPixel);
-                    bmp.SetPixel(x, y, nextPixel.WithAlpha(255));
-                    
-                }
-                y++;
-            }
-            return bmp;
+            //var enumerator = pixelData.GetEnumerator();
+            //bool pixelsLeft = true;
+            //int y = 0;
+            //while (pixelsLeft && y < bmp.Height)
+            //{
+            //    for (int x = 0; x < bmp.Width; x++)
+            //    {
+            //        SKColor nextPixel;
+            //        if (enumerator.MoveNext())
+            //        {
+            //            nextPixel = (SKColor)(uint)enumerator.Current;
+            //            Debug.Assert((uint)nextPixel == enumerator.Current);
+            //        }
+            //        else
+            //        {
+            //            pixelsLeft = false;
+            //            nextPixel = SKColor.Empty;
+            //        }
+            //        Console.Out.WriteLine(nextPixel);
+            //        bmp.SetPixel(x, y, nextPixel.WithAlpha(255));
+
+            //    }
+            //    y++;
+            //}
+            //return bmp;
         }
 
 
@@ -170,18 +204,20 @@ namespace CashlessImage
             return new BitArray(bytes);
         }
 
-        public void SaveBmpToPng(SKBitmap bmp, string outputFileName)
+        public void SaveImageToPng(Image<Rgba32> image, string outputFileName)
         {
+            image.Save(outputFileName);
+
             // create an image and then get the PNG (or any other) encoded data
-            using (var image = SKImage.FromBitmap(bmp))
-            using (var data = image.Encode(SKEncodedImageFormat.Png, 100))
-            {
-                // save the data to a stream
-                using (var stream = File.OpenWrite(outputFileName))
-                {
-                    data.SaveTo(stream);
-                }
-            }
+            //using (var image = SKImage.FromBitmap(bmp))
+            //using (var data = image.Encode(SKEncodedImageFormat.Png, 100))
+            //{
+            //    // save the data to a stream
+            //    using (var stream = File.OpenWrite(outputFileName))
+            //    {
+            //        data.SaveTo(stream);
+            //    }
+            //}
         }
 
     }
