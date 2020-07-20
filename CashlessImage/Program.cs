@@ -55,7 +55,7 @@ namespace CashlessImage
 
             parser.Configure(opt => opt.Direction)
                .Name("direction")
-               .Default(ProcessingDirection.ToData)
+               .Default(ProcessingDirection.ToImage)
                .Description("To data, or to image == processing direction");
 
             parser.Configure(opt => opt.DeleteOutputFile)
