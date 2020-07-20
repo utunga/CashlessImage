@@ -7,77 +7,63 @@ using System.Drawing;
 using SkiaSharp;
 using System.Linq;
 using System.Collections;
+using System.Collections.Generic;
 
 namespace CashlessImageTest
 {
     public class ImageMakerTests
     {
-        private Options TestOptions
-        {
-            get {
-                return new Options()
-                {
-                    ImgInputFile = "../../test_input.png",
-                    DataInputFile = "../../test_data.txt",
-                    BitsPerColor = 2
-                };
-            }
-        }
-
-        ImageMaker _target;
+        ImageMaker _imageMaker;
+        DataMaker _dataMaker;
 
         [SetUp]
         public void Setup()
         {
-            _target = new ImageMaker(TestOptions);
+            _imageMaker = new ImageMaker()
+            {
+                BitsPer = 2,
+                ImgInputFile = "../../test_input.png",
+                DataFile = "../../test_data.txt"
+            };
+            _dataMaker = new DataMaker()
+            {
+                BitsPer = 2,
+                ImgInputFile = "../../test_input.png",
+                DataFile = "../../test_data.txt"
+            };
         }
 
         [Test]
         [Ignore("Skip writeable visual area logic for now")]
         public void TestWriteableVisualArea()
         {
-            Assert.AreEqual(false, _target
-                .IsWriteableVisualArea(0, 100, 100));
-            Assert.AreEqual(true, _target
-                .IsWriteableVisualArea(51 + 51 * 100, 100, 100));
-            Assert.AreEqual(true, _target
-                .IsWriteableVisualArea(78 + 78 * 100, 100, 100));
-            Assert.AreEqual(true, _target
-                .IsWriteableVisualArea(51 + 78 * 100, 100, 100));
-            Assert.AreEqual(false, _target
-                .IsWriteableVisualArea(81 + 51 * 100, 100, 100));
-            Assert.AreEqual(false, _target
-                .IsWriteableVisualArea(51 + 81 * 100, 100, 100));
-            Assert.AreEqual(false, _target
-                .IsWriteableVisualArea(90 + 90 * 100, 100, 100));
+            Assert.AreEqual(false, _imageMaker
+                .IsWritablePixel(0, 100, 100));
+            Assert.AreEqual(true, _imageMaker
+                .IsWritablePixel(51 + 51 * 100, 100, 100));
+            Assert.AreEqual(true, _imageMaker
+                .IsWritablePixel(78 + 78 * 100, 100, 100));
+            Assert.AreEqual(true, _imageMaker
+                .IsWritablePixel(51 + 78 * 100, 100, 100));
+            Assert.AreEqual(false, _imageMaker
+                .IsWritablePixel(81 + 51 * 100, 100, 100));
+            Assert.AreEqual(false, _imageMaker
+                .IsWritablePixel(51 + 81 * 100, 100, 100));
+            Assert.AreEqual(false, _imageMaker
+                .IsWritablePixel(90 + 90 * 100, 100, 100));
         }
 
         [Test]
         public void RoundTripDataSimpleBits()
         {
-            //var srcData = "a";  //around the ragged rocks the ragged rascal ran";
-            //var stream = _StreamFromString(srcData);
-            //var data = _target.BitArrayFromStream(stream);
-
             var srcData = new byte[] {1, 2, 3, 4};
             var data = new BitArray(srcData);
             var bmp = _FilledSquare(SKColors.White, 4, 4);
-            var pixels = _target.PixelDataFromImage(bmp);
+            var pixels = _imageMaker.PixelsFromBitmap(bmp);
 
-            var blended = _target.InjectData(pixels, data, bmp.Width, bmp.Height);
-            //Console.Out.WriteLine("-- injected data --");
-            //foreach (var pixel in blended)
-            //{
-            //    Console.Out.WriteLine(Convert.ToString(pixel, 2).PadLeft(32, '0'));
-            //}
+            var blended = _imageMaker.InjectData(pixels, data, bmp.Width, bmp.Height);
 
-            var resultData = _target.ExtractData(blended, bmp.Width, bmp.Height);
-
-            //Console.Out.WriteLine("-- extracted data --");
-            //foreach (var byt in resultData)
-            //{
-            //    Console.Out.WriteLine(Convert.ToString(byt, 2).PadLeft(8, '0'));
-            //}
+            var resultData = _dataMaker.ExtractData(blended, bmp.Width, bmp.Height);
 
             Assert.AreEqual(srcData.Length, resultData.Length);
             for (int i=0;i<srcData.Length; i++)
@@ -91,14 +77,14 @@ namespace CashlessImageTest
         {
             var srcData = "around the ragged rocks the ragged rascal ran";
             var stream = _StreamFromString(srcData);
-            var data = _target.BitArrayFromStream(stream);
+            var data = _imageMaker.BitArrayFromStream(stream);
 
             var bmp = _FilledSquare(SKColors.White, 10, 10);
-            var pixels = _target.PixelDataFromImage(bmp);
+            var pixels = _imageMaker.PixelsFromBitmap(bmp);
 
-            var blended = _target.InjectData(pixels, data, bmp.Width, bmp.Height);
+            var blended = _imageMaker.InjectData(pixels, data, bmp.Width, bmp.Height);
           
-            var resultData = _target.ExtractData(blended, bmp.Width, bmp.Height);
+            var resultData = _dataMaker.ExtractData(blended, bmp.Width, bmp.Height);
 
             Assert.AreEqual(srcData, Encoding.UTF8.GetString(resultData));
         }
@@ -106,25 +92,29 @@ namespace CashlessImageTest
         [Test]
         public void RoundTripHeader()
         {
-            var srcData = new int[] { 0, 0, 0, 0};
-            var bitArray = new BitArray(srcData);
+            var pixels = new int[] { 0, 0, 0, 0, 0, 0, 0, 0 };
+            var pixelData = new BitArray(pixels);
+            
+            int pixelPtr;
+            int dataLengthSrc = 1234;
+            int bitsPerSrc = 2;
+            pixelData = _imageMaker.WriteHeader(pixelData, 
+                dataLengthSrc, bitsPerSrc, out pixelPtr);
+           
+            int dataLengthOut;
+            int bitsPerOut;
 
-            bitArray = _target.AddHeader(bitArray);
-
-            int length;
-            int bitsPer;
-
-            _target.ReadHeader(bitArray, out length, out bitsPer);
-
-            Assert.AreEqual(4 * 32, length);
-            Assert.AreEqual(TestOptions.BitsPerColor, bitsPer);
+            _dataMaker.ReadHeader(pixelData, out pixelPtr, out dataLengthOut, out bitsPerOut);
+            Assert.AreEqual(BaseMaker.HEADER_LENGTH / 32 + 1, pixelPtr);
+            Assert.AreEqual(dataLengthSrc, dataLengthOut);
+            Assert.AreEqual(bitsPerSrc, bitsPerOut);
         }
 
         [Test]
         public void TestBitArrayFromStream()
         {
             var stream = _StreamFromString("abcdefghij");
-            var bitArray = _target.BitArrayFromStream(stream);
+            var bitArray = _imageMaker.BitArrayFromStream(stream);
             var bytes = new byte[2];
             bitArray.Length = 16;
             bitArray.CopyTo(bytes, 0);
@@ -135,7 +125,7 @@ namespace CashlessImageTest
         public void TestPixelDataFromImage()
         {
             // should get 100 pixels of pure white
-            var pixels = _target.PixelDataFromImage(_FilledSquare(SKColors.White, 10, 10));
+            var pixels = _imageMaker.PixelsFromBitmap(_FilledSquare(SKColors.White, 10, 10));
 
             Assert.AreEqual(100, pixels.Count());
             foreach (var pixel in pixels)
@@ -143,11 +133,11 @@ namespace CashlessImageTest
                 //111111111111111111111 === all white
                 Assert.AreEqual(
                     "11111111111111111111111111111111",
-                    Convert.ToString(pixel, 2));
+                    Convert.ToString(pixel, 2).PadLeft(32, '0'));
             }
 
             // should get 100 pixels of pure black
-            pixels = _target.PixelDataFromImage(_FilledSquare(SKColors.Black, 10, 10));
+            pixels = _imageMaker.PixelsFromBitmap(_FilledSquare(SKColors.Black, 10, 10));
 
             Assert.AreEqual(100, pixels.Count());
             foreach (var pixel in pixels)
@@ -155,7 +145,21 @@ namespace CashlessImageTest
                 //all black == 000 except alpha channel which is all 111s
                 Assert.AreEqual(
                     "11111111000000000000000000000000",
-                    Convert.ToString(pixel,2));
+                    Convert.ToString(pixel,2).PadLeft(32, '0'));
+            }
+
+
+            // pixels with a starting value 0 to ensure we get uint
+            var color = SKColors.Blue.WithAlpha(13);
+            pixels = _imageMaker.PixelsFromBitmap(_FilledSquare(color, 10, 10));
+
+            Assert.AreEqual(100, pixels.Count());
+            foreach (var pixel in pixels)
+            {
+                //all black == 000 except alpha channel which is all 111s
+                Assert.AreEqual(
+                    "00001101000000000000000011111111",
+                    Convert.ToString(pixel, 2).PadLeft(32, '0'));
             }
         }
 
@@ -165,15 +169,108 @@ namespace CashlessImageTest
             var pixel = SKColor.Parse("#F000FF").WithAlpha(14);
             // 14 == 00001110 == alpha channel, then r,g,b
             string expected = "00001110111100000000000011111111";
-            Assert.AreEqual(expected, Convert.ToString((int)(UInt32) pixel, 2).PadLeft(32, '0'));
+            Assert.AreEqual(expected, Convert.ToString((uint) pixel, 2).PadLeft(32, '0'));
+        }
+
+
+        [Test]
+        public void RoundTripDataReadsBitsPerPixel()
+        {
+            var testData = new byte[] { 1, 2, 3, 4 };
+            var dataToInject = new BitArray(testData);
+            var bmp = _FilledSquare(SKColors.White, 10, 10);
+            var whitePixels = _imageMaker.PixelsFromBitmap(bmp);
+
+            var imageMaker = new ImageMaker()
+            {
+                BitsPer = 2
+            };
+            var dataMaker = new DataMaker();
+          
+            var injectedPixels = imageMaker.InjectData(whitePixels, dataToInject, 10, 10);
+
+            byte[] extractedData = dataMaker.ExtractData(injectedPixels, 10, 10);
+
+            Assert.AreEqual(testData, extractedData);
+            //var result = Encoding.UTF8.GetString(extractedData);
+        }
+
+        [Test]
+        public void RoundTripDataThroughBitmap()
+        {
+            var testPixels = new int[4];
+            for (int i =0; i<4; i++)
+            {
+                testPixels[i] = i+64;
+            }
+            var bmp = _imageMaker.BitmapFromPixels(testPixels, 2, 2);
+
+            var resultPixels = _dataMaker.PixelsFromBitmap(bmp);
+            Dump(testPixels, "testPixels");
+            Dump(resultPixels, "resultPixels");
+            //for (int i = 0; i < 1000; i++)
+            //{
+            //    testPixels[i] = i;
+            //}
+            Assert.AreEqual(testPixels, resultPixels.ToArray());
+        }
+
+        [Test]
+        public void RoundTripDataThroughBitmapFiles()
+        {
+            var testPixels = new int[1000];
+            for (int i = 0; i < 1000; i++)
+            {
+                testPixels[i] = i;
+            }
+            var testFilePath = Path.Join(Path.GetTempPath(), Path.GetRandomFileName() + ".png");
+
+            var bmp = _imageMaker.BitmapFromPixels(testPixels, 10, 10);
+            _imageMaker.SaveBmpToPng(bmp, testFilePath);
+
+            var bmpResult = _dataMaker.LoadBmpFromFile(testFilePath);
+            var resultPixels = _dataMaker.PixelsFromBitmap(bmpResult);
+            Assert.AreEqual(testPixels, resultPixels);
+        }
+
+        [Test]
+        public void RoundTripFiles()
+        {
+            var testData = @"{ claimData: ""0x00000000000000000000000000000000000000000000000006f05b59d3b200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005f0f1275000000000000000000000000000000000000000000000000000000005f1e54b5000000000000000000000000d90fc89e89e3e5b75256b5aa617f887c583b29a2000000000000000000000000c0c84e49b0d5a82e046914d9a93f9f64bdb41ca387bca611c58e3bc397f0994a4ea54a02d054c81f21f4901eb5788f1098b2a5dd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001""}";
+            var dataFilePath = Path.GetTempFileName();
+
+            var injectedImagePath = Path.Join(Path.GetTempPath(), Path.GetRandomFileName() + ".png");
+
+            File.WriteAllText(dataFilePath, testData, Encoding.UTF8);
+            var imageMaker = new ImageMaker()
+            {
+                BitsPer = 2,
+                ImgInputFile = "test_input.png",
+                ImgOutputFile = injectedImagePath,
+                DataFile = dataFilePath
+            };
+            imageMaker.Run();
+
+            var dataFilePath2 = Path.GetTempFileName();
+            var dataMaker = new DataMaker()
+            {
+                ImgInputFile = injectedImagePath,
+                DataFile = dataFilePath2
+            };
+            dataMaker.Run();
+
+            var resultData = File.ReadAllText(dataFilePath2, Encoding.UTF8);
+
+            Assert.AreEqual(testData, resultData);
         }
 
         public void AssertNextWriteable(int from, int toExpected)
         {
-            int toActual  = _target.NextWriteableBit(from);
+            int toActual  = _imageMaker.NextWriteableBit(from);
             Console.Out.WriteLine(string.Format("{0}-{1} ({2})", from, toActual, toExpected));
             Assert.AreEqual(toExpected, toActual);
         }
+
 
         //[Test]
         //public void TestNextWritableBitsMSBFirst()
@@ -223,7 +320,7 @@ namespace CashlessImageTest
 
         private static SKBitmap _FilledSquare(SKColor color, int width, int height)
         {
-            SKBitmap bmp = new SKBitmap(width, height, SKColorType.Rgba8888, SKAlphaType.Unpremul);
+            SKBitmap bmp = new SKBitmap(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
             using (SKCanvas canvas = new SKCanvas(bmp))
             {
                 SKRect rect = new SKRect(0, 0, width, height);
@@ -235,6 +332,16 @@ namespace CashlessImageTest
             }
 
             return bmp;
+        }
+
+        protected static void Dump(IEnumerable<int> data, string label)
+        {
+            Console.Out.WriteLine("---------" + label + "---------");
+            foreach (var i in data)
+            {
+                Console.Out.WriteLine(Convert.ToString(i, 2).PadLeft(32, '0'));
+            }
+            Console.Out.WriteLine("---------/" + label + "---------");
         }
 
         #endregion

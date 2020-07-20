@@ -26,12 +26,4 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-  <ItemGroup>
-    <Reference Include="System.Drawing.Common">
-      <HintPath>..\publish\System.Drawing.Common.dll</HintPath>
-    </Reference>
-    <Reference Include="Microsoft.Win32.SystemEvents">
-      <HintPath>..\publish\Microsoft.Win32.SystemEvents.dll</HintPath>
-    </Reference>
-  </ItemGroup>
 </Project>

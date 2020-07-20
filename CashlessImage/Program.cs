@@ -27,21 +27,19 @@ namespace CashlessImage
 
             parser.Configure(opt => opt.ImgInputFile)
                 .Name("i", "image_input")
-                //.Default("nico.jpg")
-                .Default("test_input.png")
+                .Default("nico.jpg")
                 .Description("Input file name")
                 .Required();
 
-            parser.Configure(opt => opt.DataInputFile)
+            parser.Configure(opt => opt.DataFile)
                 .Name("d", "data_input")
                 .Default("data.json")
                 .Description("Data input file")
                 .Required();
 
-            parser.Configure(opt => opt.OutputFile)
+            parser.Configure(opt => opt.ImgOutputFile)
                 .Name("o", "output")
-                //.Default("../../outputfile.png")
-                .Default("../../test_outputdata.json")
+                .Default("../../outputfile.png")
                 .Description("Output file name")
                 .Required();
 
@@ -74,9 +72,9 @@ namespace CashlessImage
                 return null;
             }
 
-            if (!File.Exists(options.DataInputFile))
+            if (!File.Exists(options.DataFile))
             {
-                Console.Out.WriteLine("Couldn't find data input file " + options.DataInputFile);
+                Console.Out.WriteLine("Couldn't find data input file " + options.DataFile);
                 return null;
             }
             return options;
@@ -97,7 +95,7 @@ namespace CashlessImage
                 return;
             }
 
-            var fileInfo = new FileInfo(options.OutputFile);
+            var fileInfo = new FileInfo(options.ImgOutputFile);
             if (fileInfo.Exists)
             {
                 Console.Out.WriteLine("File " + fileInfo + " exists already");
@@ -105,7 +103,7 @@ namespace CashlessImage
                 {
                     Console.Out.WriteLine("Deleting " + fileInfo + " because -d specified..");
                     fileInfo.Delete();
-                    fileInfo = new FileInfo(options.OutputFile);
+                    fileInfo = new FileInfo(options.ImgOutputFile);
                 }
                 else
                 {
@@ -113,8 +111,28 @@ namespace CashlessImage
                 }
             }
 
-            var imageMaker = new ImageMaker(options);
-            imageMaker.Run();
+            if (options.Direction == ProcessingDirection.ToImage)
+            {
+                var imageMaker = new ImageMaker()
+                {
+                    BitsPer = options.BitsPerColor,
+                    ImgInputFile = options.ImgInputFile,
+                    ImgOutputFile = options.ImgOutputFile,
+                    DataFile = options.DataFile
+                };
+                imageMaker.Run();
+            }
+            else if (options.Direction == ProcessingDirection.ToData)
+            {
+                var dataExtract = new DataMaker()
+                {
+                    BitsPer = options.BitsPerColor,
+                    ImgInputFile = options.ImgInputFile,
+                    DataFile = options.DataFile
+                };
+                dataExtract.Run();
+            }
+     
         }
     }
 }
