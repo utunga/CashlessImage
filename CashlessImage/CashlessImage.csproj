@@ -5,6 +5,10 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <OutputPath>bin\</OutputPath>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="MatthiWare.CommandLineParser" Version="0.3.0" />
     <PackageReference Include="SixLabors.ImageSharp" Version="1.0.0-rc0003" />

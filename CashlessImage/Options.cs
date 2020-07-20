@@ -14,7 +14,7 @@ namespace CashlessImage
 
         public string DataFile { get; set; }
 
-        public string ImgOutputFile { get; set; }
+        public string ImgMergedDataFile { get; set; }
 
         public bool DeleteOutputFile { get; set; }
 

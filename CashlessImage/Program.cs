@@ -37,9 +37,9 @@ namespace CashlessImage
                 .Description("Data input file")
                 .Required();
 
-            parser.Configure(opt => opt.ImgOutputFile)
+            parser.Configure(opt => opt.ImgMergedDataFile)
                 .Name("o", "output")
-                .Default("../../outputfile.png")
+                .Default("../../merged_data.png")
                 .Description("Output file name")
                 .Required();
 
@@ -55,7 +55,7 @@ namespace CashlessImage
 
             parser.Configure(opt => opt.Direction)
                .Name("direction")
-               .Default(ProcessingDirection.ToImage)
+               .Default(ProcessingDirection.ToData)
                .Description("To data, or to image == processing direction");
 
             parser.Configure(opt => opt.DeleteOutputFile)
@@ -71,17 +71,6 @@ namespace CashlessImage
             }
 
             var options = result.Result;
-            if (!File.Exists(options.ImgInputFile))
-            {
-                Console.Out.WriteLine("Couldn't find input file " + options.ImgInputFile);
-                return null;
-            }
-
-            if (!File.Exists(options.DataFile))
-            {
-                Console.Out.WriteLine("Couldn't find data input file " + options.DataFile);
-                return null;
-            }
             return options;
         }
 
@@ -99,15 +88,17 @@ namespace CashlessImage
                 return;
             }
 
-            var fileInfo = new FileInfo(options.ImgOutputFile);
-            if (fileInfo.Exists)
+            var targetFile = (options.Direction == ProcessingDirection.ToImage) ?
+                 new FileInfo(options.ImgMergedDataFile) :
+                 new FileInfo(options.DataFile);
+                
+            if (targetFile.Exists)
             {
-                Console.Out.WriteLine("File " + fileInfo + " exists already");
+                Console.Out.WriteLine("File " + targetFile + " exists already");
                 if (options.DeleteOutputFile)
                 {
-                    Console.Out.WriteLine("Deleting " + fileInfo + " because -d specified..");
-                    fileInfo.Delete();
-                    fileInfo = new FileInfo(options.ImgOutputFile);
+                    Console.Out.WriteLine("Deleting " + targetFile + " because -d specified..");
+                    targetFile.Delete();
                 }
                 else
                 {
@@ -117,10 +108,22 @@ namespace CashlessImage
 
             if (options.Direction == ProcessingDirection.ToImage)
             {
+                if (!File.Exists(options.ImgInputFile))
+                {
+                    Console.Out.WriteLine("Couldn't find input file " + options.ImgInputFile);
+                    return;
+                }
+
+                if (!File.Exists(options.DataFile))
+                {
+                    Console.Out.WriteLine("Couldn't find data input file " + options.DataFile);
+                    return;
+                }
+
                 var imageMaker = new ImageMaker()
                 {
                     ImgInputFile = options.ImgInputFile,
-                    ImgOutputFile = options.ImgOutputFile,
+                    ImgOutputFile = options.ImgMergedDataFile,
                     DataFile = options.DataFile
                 };
 
@@ -134,9 +137,15 @@ namespace CashlessImage
             }
             else if (options.Direction == ProcessingDirection.ToData)
             {
+                if (!File.Exists(options.ImgMergedDataFile))
+                {
+                    Console.Out.WriteLine("Couldn't find merged image data file " + options.ImgMergedDataFile);
+                    return;
+                }
+
                 var dataMaker = new DataMaker()
                 {
-                    ImgInputFile = options.ImgInputFile,
+                    ImgInputFile = options.ImgMergedDataFile,
                     DataFile = options.DataFile
                 };
                 dataMaker.Header.BitsPerPixel = options.BitsPerColor;
