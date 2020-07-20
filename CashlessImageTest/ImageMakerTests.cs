@@ -4,10 +4,7 @@ using System.IO;
 using System.Text;
 using System;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Advanced;
-using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Formats.Tga;
 using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
@@ -166,15 +163,16 @@ namespace CashlessImageTest
             }
         }
 
-        //[Test]
-        //public void TestColorsInt()
-        //{
-        //    var color = Color.Parse("#F000FF").WithAlpha(14);
-        //    var pixel = color.ToPixel<Rgba32>();
-        //    // 14 == 00001110 == alpha channel, then r,g,b
-        //    string expected = "00001110111100000000000011111111";
-        //    Assert.AreEqual(expected, Convert.ToString(pixel., 2).PadLeft(32, '0'));
-        //}
+        [Test]
+        public void TestColorsInt()
+        {
+            var color = Color.Parse("#F000FF");
+            var pixel = color.ToPixel<Rgba32>();
+            // 14 == 00001110 == alpha channel, then r,g,b
+            // note that this is backwards from F000FF
+            string expected = "11111111111111110000000011110000";
+            Assert.AreEqual(expected, Convert.ToString(pixel.Rgba, 2).PadLeft(32, '0'));
+        }
 
         [Test]
         public void RoundTripDataReadsBitsPerPixel()

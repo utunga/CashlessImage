@@ -1,16 +1,8 @@
 ﻿using System;
 using System.Collections;
-using System.Collections.Generic;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Advanced;
-using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp.Formats.Tga;
 using System.IO;
-using System.Linq;
-using SixLabors.ImageSharp.PixelFormats;
-using SixLabors.ImageSharp;
-using System.Runtime.InteropServices;
 
 namespace CashlessImage
 {
@@ -24,7 +16,6 @@ namespace CashlessImage
         public string ImgInputFile { get; set; }
 
         public string DataFile { get; set; }
-
 
         public void ExtractDataFromImage()
         {
@@ -51,15 +42,13 @@ namespace CashlessImage
         {
             var pixelData = new BitArray(pixels);
 
-            
             int pixelPtr;
             HeaderStruct header = 
                 ReadHeader(pixelData, out pixelPtr);
             BitsPer = header.BitsPerPixel;
             int dataLength = header.DataLength;
             BitArray data = new BitArray(dataLength);
-            //Dump(pixelData, "pixel data to extract");
-
+            
             var dataPtr = 0;
             int pixelBitPtr = -1;
             while (pixelPtr < pixels.Length && dataPtr < dataLength)
@@ -90,7 +79,6 @@ namespace CashlessImage
         {
             var dataPtr = 0;
             int pixelDataPtr = NextWriteableBitHeader(-1);
-            //Dump(pixelData, "read data");
             BitArray data = new BitArray(HEADER_LENGTH);
             while (dataPtr < HEADER_LENGTH)
             {
@@ -104,6 +92,5 @@ namespace CashlessImage
             data.CopyTo(bytes, 0);
             return HeaderStruct.FromBytes(bytes);
         }
-
     }
 }
