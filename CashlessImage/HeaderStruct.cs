@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -45,11 +46,14 @@ namespace CashlessImage
             return obj;
         }
 
-        public void SetWritableRange(int minX, int maxX, int minY, int maxY)
+        public void SetWritableRange(int minX, int minY, int maxX, int maxY)
         {
+            if (minX > maxX || minY > maxY)
+                throw new ArgumentException(string.Format("Incorrect pixel range. Failed check that {0}<{1}, and {2}<{3}", minX, maxX, minY, maxY));
+
             MinX = minX;
-            MaxX = maxX;
             MinY = minY;
+            MaxX = maxX;
             MaxY = maxY;
         }
     }

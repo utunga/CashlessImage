@@ -27,7 +27,7 @@ namespace CashlessImage
 
             parser.Configure(opt => opt.ImgInputFile)
                 .Name("i", "image_input")
-                .Default("nico.jpg")
+                .Default("thanks_for_helping.png")
                 .Description("Input file name")
                 .Required();
 
@@ -48,9 +48,14 @@ namespace CashlessImage
                 .Default(3)
                 .Description("How many bits per color segment (leave 0 to only use Alpha)");
 
+            parser.Configure(opt => opt.PixelRange)
+                .Name("r", "range")
+                .Default(new int[] {1100, 1160, 1900, 1280})
+                .Description("Writeable pixels (range) minX,minY, maxX,maxY");
+
             parser.Configure(opt => opt.Direction)
                .Name("direction")
-               .Default(ProcessingDirection.ToData)
+               .Default(ProcessingDirection.ToImage)
                .Description("To data, or to image == processing direction");
 
             parser.Configure(opt => opt.DeleteOutputFile)
@@ -87,7 +92,6 @@ namespace CashlessImage
 
         static void Main(string[] args)
         {
-
             // try to configure by command line
             var options = Configure(args);
             if (options == null)
@@ -119,7 +123,13 @@ namespace CashlessImage
                     ImgOutputFile = options.ImgOutputFile,
                     DataFile = options.DataFile
                 };
+
                 imageMaker.Header.BitsPerPixel = options.BitsPerColor;
+                imageMaker.Header.SetWritableRange(
+                    minX: options.PixelRange[0],
+                    minY: options.PixelRange[1],
+                    maxX: options.PixelRange[2],
+                    maxY: options.PixelRange[3]);
                 imageMaker.Run();
             }
             else if (options.Direction == ProcessingDirection.ToData)

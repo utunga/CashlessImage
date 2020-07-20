@@ -131,14 +131,6 @@ namespace CashlessImage
 
         public int[] PixelsFromImage(Image<Rgba32> image)
         {
-            //if (image.TryGetSinglePixelSpan(out var pixelSpan))
-            //{
-            //    var bytes = MemoryMarshal.AsBytes(pixelSpan).ToArray();
-            //    int[] result = new int[bytes.Length / 4];
-            //    Buffer.BlockCopy(bytes, 0, result, 0, result.Length);
-            //    return result;
-            //}
-            //throw new ApplicationException("Image too big");
             int[] result = new int[image.Width * image.Height];
             for (int y = 0; y < image.Height; y++)
             {
@@ -146,7 +138,7 @@ namespace CashlessImage
                 for (int x = 0; x < image.Width; x++)
                 {
                     var pixel = pixelRowSpan[x];
-                    int index = image.Height * y + x;
+                    int index = image.Width * y + x;
                     result[index] = (int)pixel.Rgba;
                 }
             }

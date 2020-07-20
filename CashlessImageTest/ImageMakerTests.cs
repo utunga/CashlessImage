@@ -224,7 +224,7 @@ namespace CashlessImageTest
 
             var imageMaker = new ImageMaker();
             imageMaker.Header.BitsPerPixel = 8;
-            imageMaker.Header.SetWritableRange(4, 8, 4, 8);
+            imageMaker.Header.SetWritableRange(4, 4, 8, 8);
 
             var dataMaker = new DataMaker();
             
@@ -270,7 +270,7 @@ namespace CashlessImageTest
                 DataFile = dataFilePath
             };
             imageMaker.Header.BitsPerPixel = 2;
-            imageMaker.Header.SetWritableRange(105, 165, 150, 200);
+            imageMaker.Header.SetWritableRange(105, 150, 165, 200);
             imageMaker.Run();
 
             var dataFilePath2 = Path.GetTempFileName();
