@@ -27,7 +27,6 @@ namespace CashlessImage
 
             parser.Configure(opt => opt.ImgInputFile)
                 .Name("i", "image_input")
-                .Default("thanks_for_helping.png")
                 .Description("Input file name")
                 .Required();
 
@@ -39,7 +38,6 @@ namespace CashlessImage
 
             parser.Configure(opt => opt.ImgMergedDataFile)
                 .Name("o", "output")
-                .Default("../../merged_data.png")
                 .Description("Output file name")
                 .Required();
 

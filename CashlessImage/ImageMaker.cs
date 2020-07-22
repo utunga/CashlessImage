@@ -65,7 +65,8 @@ namespace CashlessImage
             int pixelPtr;
             pixelData = WriteHeader(pixelData, Header, out pixelPtr);
 
-            int dataPtr = 0; 
+            int dataPtr = 0;
+            int repititionCounter = 0;
             int pixelBitPtr = -1;
             while (pixelPtr < pixels.Length)
             {
@@ -87,13 +88,17 @@ namespace CashlessImage
                 // if we run out of data to write, just
                 // repeat it (for visual symmetry)
                 if (dataPtr == data.Length)
+                {
                     dataPtr = 0;
+                    repititionCounter++;
+
+                }
 
                 // once we run out of data to write just stop
                 //if (dataPtr == data.Length)
                 //    break;
             }
-
+            Console.Out.WriteLine(string.Format("Data repeated {0} times", repititionCounter)); 
             var retVal = new int[pixels.Length];
             pixelData.CopyTo(retVal, 0);
             return retVal;
